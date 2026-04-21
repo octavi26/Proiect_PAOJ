@@ -163,6 +163,7 @@ public class TerrariaService {
 
     /**
      * Renders a portion of the map in ASCII format.
+     * Legend: P=Player, M=Mob, I=Item, D=Dirt, S=Stone (Caps=Block, small=Wall)
      */
     public void printRenderSector(int startX, int startY, int width, int height, WorldMap map) {
         System.out.println("--- Render Sector (" + startX + "," + startY + ") ---");
@@ -170,7 +171,7 @@ public class TerrariaService {
             for (int x = startX; x < startX + width; x++) {
                 char symbol = ' '; // Air
 
-                // Check for entities (like Player)
+                // Check for entities (like Player) - Entities take priority
                 boolean entityFound = false;
                 for (Entity e : map.getEntities()) {
                     if (e.getX() == x && e.getY() == y) {
@@ -186,8 +187,15 @@ public class TerrariaService {
                     GameObject fg = map.getForeground().getObject(x, y);
                     GameObject bg = map.getBackground().getObject(x, y);
 
-                    if (fg != null) symbol = '#'; // Solid Block
-                    else if (bg != null) symbol = '.'; // Background Wall
+                    if (fg != null) {
+                        if (fg.getName().equals("Dirt")) symbol = 'D';
+                        else if (fg.getName().equals("Stone")) symbol = 'S';
+                        else symbol = '#';
+                    } else if (bg != null) {
+                        if (bg.getName().equals("DirtWall")) symbol = 'd';
+                        else if (bg.getName().equals("StoneWall")) symbol = 's';
+                        else symbol = '.';
+                    }
                 }
                 System.out.print(symbol + " ");
             }
