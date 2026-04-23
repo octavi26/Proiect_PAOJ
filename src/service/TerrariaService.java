@@ -23,12 +23,11 @@ public class TerrariaService {
             for (int y = 0; y < height; y++) {
                 if (y < height / 2) {
                     fg.setObject(x, y, new Block(nextObjectId++, "Stone"));
-                    bg.setObject(x, y, new Wall(nextObjectId++, "StoneWall"));
+                    bg.setObject(x, y, new Wall(nextObjectId++, "Stone"));
                 } else if (y < height * 3 / 4) {
                     fg.setObject(x, y, new Block(nextObjectId++, "Dirt"));
-                    bg.setObject(x, y, new Wall(nextObjectId++, "DirtWall"));
+                    bg.setObject(x, y, new Wall(nextObjectId++, "Dirt"));
                 }
-                // Air above
             }
         }
         return map;
@@ -51,13 +50,16 @@ public class TerrariaService {
     /**
      * Applies gravity to an entity if there is no solid block below.
      */
-    public void applyGravity(Entity entity, WorldMap map) {
+    public boolean applyGravity(Entity entity, WorldMap map) {
         int x = entity.getX();
         int y = entity.getY();
 
         if (y > 0 && map.getForeground().getObject(x, y - 1) == null) {
             entity.setY(y - 1);
+            return true;
         }
+
+        return false;
     }
 
     /**
@@ -127,9 +129,11 @@ public class TerrariaService {
      * Picks up a dropped item from the world.
      */
     public void pickupItem(Player player, DroppedItem item, WorldMap map) {
-        player.getInventory().addItem(item.getItemName(), item.getAmount());
-        map.getEntities().remove(item);
-        System.out.println("Picked up " + item.getAmount() + " " + item.getItemName());
+//        if (item.getX() == player.getX() && item.getY() == player.getY()) {
+            player.getInventory().addItem(item.getItemName(), item.getAmount());
+            map.getEntities().remove(item);
+            System.out.println("Picked up " + item.getAmount() + " " + item.getItemName());
+//        }
     }
 
     /**
@@ -145,7 +149,6 @@ public class TerrariaService {
      * Crafts a tool by consuming specific resources (e.g., 3 Dirt for a DirtPickaxe).
      */
     public void craftTool(String toolName, Player player) {
-        // Simplified craft: 3 Dirt for any tool for demonstration
         if (player.getInventory().removeItem("Dirt", 3)) {
             player.getInventory().addItem(toolName, 1);
             System.out.println("Crafted " + toolName);
@@ -171,7 +174,7 @@ public class TerrariaService {
             for (int x = startX; x < startX + width; x++) {
                 char symbol = ' '; // Air
 
-                // Check for entities (like Player) - Entities take priority
+                // Check for entities - Entities take priority
                 boolean entityFound = false;
                 for (Entity e : map.getEntities()) {
                     if (e.getX() == x && e.getY() == y) {
@@ -192,8 +195,8 @@ public class TerrariaService {
                         else if (fg.getName().equals("Stone")) symbol = 'S';
                         else symbol = '#';
                     } else if (bg != null) {
-                        if (bg.getName().equals("DirtWall")) symbol = 'd';
-                        else if (bg.getName().equals("StoneWall")) symbol = 's';
+                        if (bg.getName().equals("Dirt")) symbol = 'd';
+                        else if (bg.getName().equals("Stone")) symbol = 's';
                         else symbol = '.';
                     }
                 }
