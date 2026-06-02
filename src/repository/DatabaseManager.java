@@ -16,8 +16,11 @@ public class DatabaseManager {
 
     private DatabaseManager() {
         try {
+            Class.forName("org.sqlite.JDBC");
             connection = DriverManager.getConnection(DB_URL);
             createTables();
+        } catch (ClassNotFoundException e) {
+            System.err.println("SQLite Driver not found! Make sure sqlite-jdbc.jar is in the lib folder and added to project structure.");
         } catch (SQLException e) {
             System.err.println("Database connection failed: " + e.getMessage());
         }

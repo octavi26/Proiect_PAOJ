@@ -2,6 +2,7 @@ package view;
 
 import models.*;
 import service.TerrariaService;
+import repository.*;
 import java.sql.SQLException;
 import javax.swing.*;
 import java.awt.*;
@@ -105,6 +106,19 @@ public class GamePanel extends JPanel {
     }
 
     private void changeChunk(int newChunkId, int newPlayerX) {
+        // Save current chunk entities before leaving
+        try {
+            EntityRepository.getInstance().clearChunkEntities(currentChunkId);
+            for (Entity e : map.getEntities()) {
+                if (!(e instanceof Player)) {
+                    EntityRepository.getInstance().create(e, currentChunkId);
+                }
+            }
+            PlayerRepository.getInstance().create(player, currentChunkId);
+        } catch (SQLException e) {
+            System.err.println("Failed to save chunk state: " + e.getMessage());
+        }
+
         this.currentChunkId = newChunkId;
         // Load new map from DB
         this.map = service.loadChunk(currentChunkId, map.getForeground().getWidth(), map.getForeground().getHeight());

@@ -33,17 +33,19 @@ public class TerrariaService {
         
         try {
             List<Entity> entities = EntityRepository.getInstance().readAll(chunkId);
+            // We check if blocks exist for this chunk
             if (entities.isEmpty()) {
-                // If no entities, assume chunk is new and generate it
+                // Check if blocks exist
                 return generateAndSaveWorld(chunkId, width, height);
             }
             
             map.getEntities().addAll(entities);
-            // In a real app, we'd also load blocks/walls here from DB.
-            // For brevity in this demo, we'll re-generate but keep entities persistent.
-            return generateWorld(width, height); 
+            BlockRepository.getInstance().loadBlocksIntoLayer(chunkId, map.getForeground());
+            WallRepository.getInstance().loadWallsIntoLayer(chunkId, map.getBackground());
+            
+            return map; 
         } catch (SQLException e) {
-            System.err.println("Failed to load chunk: " + e.getMessage());
+            System.err.println("Failed to load chunk from DB: " + e.getMessage());
             return generateWorld(width, height);
         }
     }

@@ -1,6 +1,7 @@
 package repository;
 
 import models.Block;
+import models.WorldLayer;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,9 +56,23 @@ public class BlockRepository extends BaseRepository<Block> {
 
     @Override
     public List<Block> readAll(int chunkId) throws SQLException {
-        // Blocks need position to be useful in the grid.
-        // Returning a list might not be enough without x/y info.
+        // We use a specialized method since we need x and y
         return new ArrayList<>();
+    }
+
+    public void loadBlocksIntoLayer(int chunkId, WorldLayer layer) throws SQLException {
+        String sql = "SELECT * FROM blocks WHERE chunk_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, chunkId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    int x = rs.getInt("x");
+                    int y = rs.getInt("y");
+                    String type = rs.getString("type");
+                    layer.setObject(x, y, new Block(0, type));
+                }
+            }
+        }
     }
 
     @Override

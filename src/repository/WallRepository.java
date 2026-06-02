@@ -1,6 +1,7 @@
 package repository;
 
 import models.Wall;
+import models.WorldLayer;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +31,21 @@ public class WallRepository extends BaseRepository<Wall> {
             pstmt.setInt(3, y);
             pstmt.setString(4, type);
             pstmt.executeUpdate();
+        }
+    }
+
+    public void loadWallsIntoLayer(int chunkId, WorldLayer layer) throws SQLException {
+        String sql = "SELECT * FROM walls WHERE chunk_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, chunkId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    int x = rs.getInt("x");
+                    int y = rs.getInt("y");
+                    String type = rs.getString("type");
+                    layer.setObject(x, y, new Wall(0, type));
+                }
+            }
         }
     }
 
