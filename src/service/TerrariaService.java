@@ -91,15 +91,15 @@ public class TerrariaService {
     }
 
     /**
-     * Mines a block - now requires a tool for hard blocks.
+     * Mines a block - now requires holding a pickaxe for hard blocks.
      */
-    public void mineForegroundBlock(int x, int y, Player player, WorldMap map) {
+    public void mineForegroundBlock(int x, int y, String heldItem, Player player, WorldMap map) {
         GameObject obj = map.getForeground().getObject(x, y);
         if (obj instanceof Block) {
             boolean canMine = true;
             if (obj.getName().equals("Stone")) {
-                // Simplified tool check: does inventory have anything with "Pickaxe" in name?
-                canMine = player.getInventory().getItems().keySet().stream().anyMatch(k -> k.contains("Pickaxe"));
+                // Must be holding a Pickaxe
+                canMine = heldItem != null && heldItem.contains("Pickaxe");
             }
 
             if (canMine) {
@@ -107,7 +107,7 @@ public class TerrariaService {
                 map.getForeground().setObject(x, y, null);
                 System.out.println("Mined: " + obj.getName());
             } else {
-                System.out.println("You need a Pickaxe to mine Stone!");
+                System.out.println("You need to hold a Pickaxe to mine Stone!");
             }
         }
     }
@@ -184,14 +184,14 @@ public class TerrariaService {
     }
 
     /**
-     * Crafts a tool by consuming specific resources (e.g., 3 Dirt for a DirtPickaxe).
+     * Crafts a tool by consuming specific resources (e.g., 3 Wood for a WoodenPickaxe).
      */
     public void craftTool(String toolName, Player player) {
-        if (player.getInventory().removeItem("Dirt", 3)) {
+        if (player.getInventory().removeItem("Wood", 3)) {
             player.getInventory().addItem(toolName, 1);
             System.out.println("Crafted " + toolName);
         } else {
-            System.out.println("Need 3 Dirt to craft a tool.");
+            System.out.println("Need 3 Wood to craft a tool.");
         }
     }
 
