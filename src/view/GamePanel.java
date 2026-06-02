@@ -7,6 +7,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 /**
  * Custom JPanel that renders the game world and handles input.
@@ -35,6 +37,34 @@ public class GamePanel extends JPanel {
                             service.moveEntity(player, 0, 2, map);
                         }
                     }
+                }
+                repaint();
+            }
+        });
+
+        addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                int worldX = e.getX() / TILE_SIZE;
+                int worldY = map.getForeground().getHeight() - 1 - (e.getY() / TILE_SIZE);
+
+                // 1. Check for entities at click location (for attack)
+                Entity target = null;
+                for (Entity entity : map.getEntities()) {
+                    if (entity.getX() == worldX && entity.getY() == worldY && entity != player) {
+                        target = entity;
+                        break;
+                    }
+                }
+
+                if (target != null) {
+                    service.attack(player, target);
+                    if (!target.isAlive()) {
+                        map.getEntities().remove(target);
+                    }
+                } else {
+                    // 2. Otherwise, attempt to mine the block
+                    service.mineForegroundBlock(worldX, worldY, player, map);
                 }
                 repaint();
             }

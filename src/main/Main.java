@@ -34,11 +34,6 @@ public class Main {
             frame.setLocationRelativeTo(null);
             frame.setResizable(false);
             frame.setVisible(true);
-            
-            JOptionPane.showMessageDialog(frame, 
-                "Controls:\n- A / D: Move Left/Right\n- W / Space: Jump\n- Gravity is automatic!", 
-                "How to Play", 
-                JOptionPane.INFORMATION_MESSAGE);
         });
     }
 }
