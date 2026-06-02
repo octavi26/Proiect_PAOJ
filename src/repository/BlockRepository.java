@@ -54,6 +54,17 @@ public class BlockRepository extends BaseRepository<Block> {
         }
     }
 
+    public boolean hasBlocks(int chunkId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM blocks WHERE chunk_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, chunkId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) return rs.getInt(1) > 0;
+            }
+        }
+        return false;
+    }
+
     @Override
     public List<Block> readAll(int chunkId) throws SQLException {
         // We use a specialized method since we need x and y

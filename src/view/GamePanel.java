@@ -151,11 +151,11 @@ public class GamePanel extends JPanel {
                 service.attack(player, target);
                 if (!target.isAlive()) map.getEntities().remove(target);
             } else {
-                service.mineForegroundBlock(worldX, worldY, heldItem, player, map);
+                service.mineForegroundBlock(currentChunkId, worldX, worldY, heldItem, player, map);
             }
         } else if (SwingUtilities.isRightMouseButton(e)) {
             if (heldItem != null && !heldItem.contains("Pickaxe")) {
-                service.placeForegroundBlock(worldX, worldY, heldItem, player, map);
+                service.placeForegroundBlock(currentChunkId, worldX, worldY, heldItem, player, map);
             }
         }
     }

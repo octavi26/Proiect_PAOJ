@@ -30,19 +30,21 @@ public class TerrariaService {
     public WorldMap loadChunk(int chunkId, int width, int height) {
         audit.logAction("LOAD_CHUNK_" + chunkId);
         WorldMap map = new WorldMap(width, height);
-        
+
         try {
-            List<Entity> entities = EntityRepository.getInstance().readAll(chunkId);
-            // We check if blocks exist for this chunk
-            if (entities.isEmpty()) {
-                // Check if blocks exist
+            if (!BlockRepository.getInstance().hasBlocks(chunkId)) {
+                // If no blocks, assume chunk is new and generate it
                 return generateAndSaveWorld(chunkId, width, height);
             }
-            
-            map.getEntities().addAll(entities);
+
+            // Load blocks/walls from DB
             BlockRepository.getInstance().loadBlocksIntoLayer(chunkId, map.getForeground());
             WallRepository.getInstance().loadWallsIntoLayer(chunkId, map.getBackground());
-            
+
+            // Load entities
+            List<Entity> entities = EntityRepository.getInstance().readAll(chunkId);
+            map.getEntities().addAll(entities);
+
             return map; 
         } catch (SQLException e) {
             System.err.println("Failed to load chunk from DB: " + e.getMessage());
@@ -122,7 +124,7 @@ public class TerrariaService {
         }
     }
 
-    public void mineForegroundBlock(int x, int y, String heldItem, Player player, WorldMap map) {
+    public void mineForegroundBlock(int chunkId, int x, int y, String heldItem, Player player, WorldMap map) {
         GameObject obj = map.getForeground().getObject(x, y);
         if (obj instanceof Block) {
             boolean canMine = !obj.getName().equals("Stone") || (heldItem != null && heldItem.contains("Pickaxe"));
@@ -130,17 +132,18 @@ public class TerrariaService {
                 audit.logAction("MINE_BLOCK_" + obj.getName());
                 player.getInventory().addItem(obj.getName(), 1);
                 map.getForeground().setObject(x, y, null);
-                // Update DB (Requirement: Delete/Update)
-                try { BlockRepository.getInstance().removeBlock(0, x, y); } catch (SQLException ignored) {}
+                // Update DB with correct chunkId
+                try { BlockRepository.getInstance().removeBlock(chunkId, x, y); } catch (SQLException ignored) {}
             }
         }
     }
 
-    public void placeForegroundBlock(int x, int y, String blockName, Player player, WorldMap map) {
+    public void placeForegroundBlock(int chunkId, int x, int y, String blockName, Player player, WorldMap map) {
         if (map.getForeground().getObject(x, y) == null && player.getInventory().removeItem(blockName, 1)) {
             audit.logAction("PLACE_BLOCK_" + blockName);
             map.getForeground().setObject(x, y, new Block(nextObjectId++, blockName));
-            try { BlockRepository.getInstance().saveBlock(0, x, y, blockName); } catch (SQLException ignored) {}
+            // Update DB with correct chunkId
+            try { BlockRepository.getInstance().saveBlock(chunkId, x, y, blockName); } catch (SQLException ignored) {}
         }
     }
 
