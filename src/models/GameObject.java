@@ -3,7 +3,7 @@ package models;
 /**
  * Abstract class representing any static object in the world.
  */
-public abstract class GameObject {
+public abstract class GameObject implements Identifiable {
     protected int id;
     protected String name;
 

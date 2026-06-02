@@ -12,7 +12,7 @@ public class TerrariaService {
     private int nextEntityId = 1;
 
     /**
-     * Initializes the world map with basic blocks and walls.
+     * Initializes the world map with layers, grass, and occasional caves.
      */
     public WorldMap generateWorld(int width, int height) {
         WorldMap map = new WorldMap(width, height);
@@ -20,42 +20,60 @@ public class TerrariaService {
         WorldLayer bg = map.getBackground();
 
         for (int x = 0; x < width; x++) {
+            int surfaceY = height * 3 / 4;
             for (int y = 0; y < height; y++) {
-                if (y < height / 2) {
-                    fg.setObject(x, y, new Block(nextObjectId++, "Stone"));
-                    bg.setObject(x, y, new Wall(nextObjectId++, "Stone"));
-                } else if (y < height * 3 / 4) {
-                    fg.setObject(x, y, new Block(nextObjectId++, "Dirt"));
-                    bg.setObject(x, y, new Wall(nextObjectId++, "Dirt"));
+                // Background walls everywhere underground
+                if (y < surfaceY) bg.setObject(x, y, new Wall(nextObjectId++, "Dirt"));
+
+                // Foreground logic
+                if (y == surfaceY) {
+                    fg.setObject(x, y, new Block(nextObjectId++, "Grass"));
+                } else if (y < surfaceY) {
+                    // Simple Cave Generation (random pockets)
+                    if (Math.random() > 0.15) { 
+                        String type = (y < height / 3) ? "Stone" : "Dirt";
+                        fg.setObject(x, y, new Block(nextObjectId++, type));
+                    }
                 }
+            }
+            // Occasional Trees
+            if (x > 0 && x < width - 1 && Math.random() > 0.8) {
+                fg.setObject(x, surfaceY + 1, new Block(nextObjectId++, "Wood"));
+                fg.setObject(x, surfaceY + 2, new Block(nextObjectId++, "Wood"));
+                fg.setObject(x, surfaceY + 3, new Block(nextObjectId++, "Leaves"));
             }
         }
         return map;
     }
 
     /**
-     * Moves an entity by deltaX and deltaY if within bounds.
+     * Moves a movable object with COLLISION DETECTION.
      */
-    public void moveEntity(Entity entity, int deltaX, int deltaY, WorldMap map) {
-        int newX = entity.getX() + deltaX;
-        int newY = entity.getY() + deltaY;
+    public void moveEntity(Movable movable, int deltaX, int deltaY, WorldMap map) {
+        int newX = movable.getX() + deltaX;
+        int newY = movable.getY() + deltaY;
 
+        // Check Bounds
         if (newX >= 0 && newX < map.getForeground().getWidth() &&
             newY >= 0 && newY < map.getForeground().getHeight()) {
-            entity.setX(newX);
-            entity.setY(newY);
+            
+            // Check Collision (is the foreground empty?)
+            if (map.getForeground().getObject(newX, newY) == null) {
+                movable.setX(newX);
+                movable.setY(newY);
+            }
         }
     }
 
     /**
-     * Applies gravity to an entity if there is no solid block below.
+     * Applies gravity to a movable object if there is no solid block below.
      */
-    public boolean applyGravity(Entity entity, WorldMap map) {
-        int x = entity.getX();
-        int y = entity.getY();
+    public boolean applyGravity(Movable movable, WorldMap map) {
+        int x = movable.getX();
+        int y = movable.getY();
 
         if (y > 0 && map.getForeground().getObject(x, y - 1) == null) {
-            entity.setY(y - 1);
+            movable.setY(y - 1);
             return true;
         }
 
@@ -63,14 +81,34 @@ public class TerrariaService {
     }
 
     /**
-     * Mines a foreground block and adds it to the player's inventory.
+     * Attacks a target entity.
+     */
+    public void attack(Entity attacker, Entity target) {
+        if (target.isAlive()) {
+            target.setHealth(target.getHealth() - 2);
+            System.out.println("Entity " + attacker.getId() + " attacked " + target.getId() + ". Target HP: " + target.getHealth());
+        }
+    }
+
+    /**
+     * Mines a block - now requires a tool for hard blocks.
      */
     public void mineForegroundBlock(int x, int y, Player player, WorldMap map) {
         GameObject obj = map.getForeground().getObject(x, y);
         if (obj instanceof Block) {
-            player.getInventory().addItem(obj.getName(), 1);
-            map.getForeground().setObject(x, y, null);
-            System.out.println("Mined foreground: " + obj.getName());
+            boolean canMine = true;
+            if (obj.getName().equals("Stone")) {
+                // Simplified tool check: does inventory have anything with "Pickaxe" in name?
+                canMine = player.getInventory().getItems().keySet().stream().anyMatch(k -> k.contains("Pickaxe"));
+            }
+
+            if (canMine) {
+                player.getInventory().addItem(obj.getName(), 1);
+                map.getForeground().setObject(x, y, null);
+                System.out.println("Mined: " + obj.getName());
+            } else {
+                System.out.println("You need a Pickaxe to mine Stone!");
+            }
         }
     }
 
@@ -179,6 +217,7 @@ public class TerrariaService {
                 for (Entity e : map.getEntities()) {
                     if (e.getX() == x && e.getY() == y) {
                         if (e instanceof Player) symbol = 'P';
+                        else if (e instanceof HostileMob) symbol = 'Z';
                         else if (e instanceof PassiveMob) symbol = 'M';
                         else if (e instanceof DroppedItem) symbol = 'I';
                         entityFound = true;
@@ -193,6 +232,9 @@ public class TerrariaService {
                     if (fg != null) {
                         if (fg.getName().equals("Dirt")) symbol = 'D';
                         else if (fg.getName().equals("Stone")) symbol = 'S';
+                        else if (fg.getName().equals("Grass")) symbol = 'G';
+                        else if (fg.getName().equals("Wood")) symbol = 'W';
+                        else if (fg.getName().equals("Leaves")) symbol = 'L';
                         else symbol = '#';
                     } else if (bg != null) {
                         if (bg.getName().equals("Dirt")) symbol = 'd';
