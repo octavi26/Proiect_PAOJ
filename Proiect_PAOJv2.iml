@@ -11,6 +11,8 @@
       <library>
         <CLASSES>
           <root url="jar://$MODULE_DIR$/lib/sqlite-jdbc.jar!/" />
+          <root url="jar://$MODULE_DIR$/lib/slf4j-api.jar!/" />
+          <root url="jar://$MODULE_DIR$/lib/slf4j-simple.jar!/" />
         </CLASSES>
         <JAVADOC />
         <SOURCES />
