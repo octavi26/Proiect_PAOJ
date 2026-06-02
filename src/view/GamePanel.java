@@ -18,6 +18,7 @@ public class GamePanel extends JPanel {
     private final Player player;
     private final TerrariaService service;
     private final int TILE_SIZE = 32;
+    private boolean isInventoryOpen = false;
 
     public GamePanel(WorldMap map, Player player, TerrariaService service) {
         this.map = map;
@@ -28,13 +29,16 @@ public class GamePanel extends JPanel {
         addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                switch (e.getKeyCode()) {
-                    case KeyEvent.VK_A -> service.moveEntity(player, -1, 0, map);
-                    case KeyEvent.VK_D -> service.moveEntity(player, 1, 0, map);
-                    case KeyEvent.VK_W, KeyEvent.VK_SPACE -> {
-                        // Jump logic: check if there's a block below before jumping
-                        if (map.getForeground().getObject(player.getX(), player.getY() - 1) != null) {
-                            service.moveEntity(player, 0, 2, map);
+                if (e.getKeyCode() == KeyEvent.VK_TAB) {
+                    isInventoryOpen = !isInventoryOpen;
+                } else if (!isInventoryOpen) {
+                    switch (e.getKeyCode()) {
+                        case KeyEvent.VK_A -> service.moveEntity(player, -1, 0, map);
+                        case KeyEvent.VK_D -> service.moveEntity(player, 1, 0, map);
+                        case KeyEvent.VK_W, KeyEvent.VK_SPACE -> {
+                            if (map.getForeground().getObject(player.getX(), player.getY() - 1) != null) {
+                                service.moveEntity(player, 0, 2, map);
+                            }
                         }
                     }
                 }
@@ -45,26 +49,31 @@ public class GamePanel extends JPanel {
         addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                int worldX = e.getX() / TILE_SIZE;
-                int worldY = map.getForeground().getHeight() - 1 - (e.getY() / TILE_SIZE);
-
-                // 1. Check for entities at click location (for attack)
-                Entity target = null;
-                for (Entity entity : map.getEntities()) {
-                    if (entity.getX() == worldX && entity.getY() == worldY && entity != player) {
-                        target = entity;
-                        break;
-                    }
-                }
-
-                if (target != null) {
-                    service.attack(player, target);
-                    if (!target.isAlive()) {
-                        map.getEntities().remove(target);
+                if (isInventoryOpen) {
+                    // Handle Crafting Click (Simplified: click on the right side to craft)
+                    if (e.getX() > getWidth() - 200) {
+                        service.craftTool("DirtPickaxe", player);
                     }
                 } else {
-                    // 2. Otherwise, attempt to mine the block
-                    service.mineForegroundBlock(worldX, worldY, player, map);
+                    int worldX = e.getX() / TILE_SIZE;
+                    int worldY = map.getForeground().getHeight() - 1 - (e.getY() / TILE_SIZE);
+
+                    Entity target = null;
+                    for (Entity entity : map.getEntities()) {
+                        if (entity.getX() == worldX && entity.getY() == worldY && entity != player) {
+                            target = entity;
+                            break;
+                        }
+                    }
+
+                    if (target != null) {
+                        service.attack(player, target);
+                        if (!target.isAlive()) {
+                            map.getEntities().remove(target);
+                        }
+                    } else {
+                        service.mineForegroundBlock(worldX, worldY, player, map);
+                    }
                 }
                 repaint();
             }
@@ -134,6 +143,42 @@ public class GamePanel extends JPanel {
             else if (e instanceof DroppedItem) g.setColor(Color.YELLOW);
 
             g.fillOval(drawX + 4, drawY + 4, TILE_SIZE - 8, TILE_SIZE - 8);
+        }
+
+        // Draw Inventory and Crafting Overlay
+        if (isInventoryOpen) {
+            // Semi-transparent background
+            g.setColor(new Color(0, 0, 0, 180));
+            g.fillRect(0, 0, getWidth(), getHeight());
+
+            g.setColor(Color.WHITE);
+            g.setFont(new Font("Arial", Font.BOLD, 18));
+            
+            // 1. Draw Inventory List
+            g.drawString("INVENTORY", 50, 50);
+            int yPos = 80;
+            String invText = player.getInventory().toString(); // e.g., "Inventory: Dirt: 5, Stone: 2"
+            if (invText.startsWith("Inventory: ")) {
+                String[] items = invText.substring(11).split(", ");
+                for (String item : items) {
+                    g.drawString("- " + item, 60, yPos);
+                    yPos += 25;
+                }
+            } else {
+                g.drawString(invText, 60, yPos);
+            }
+
+            // 2. Draw Crafting Recipes
+            int craftingX = getWidth() - 250;
+            g.drawString("CRAFTING", craftingX, 50);
+            g.setColor(Color.YELLOW);
+            g.drawRect(craftingX, 70, 200, 60);
+            g.setColor(Color.WHITE);
+            g.drawString("DirtPickaxe", craftingX + 10, 95);
+            g.setFont(new Font("Arial", Font.PLAIN, 12));
+            g.drawString("(Cost: 3 Dirt)", craftingX + 10, 115);
+            g.setFont(new Font("Arial", Font.ITALIC, 12));
+            g.drawString("Click to Craft", craftingX + 120, 125);
         }
     }
 
