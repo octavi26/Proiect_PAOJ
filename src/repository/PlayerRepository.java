@@ -33,6 +33,26 @@ public class PlayerRepository extends BaseRepository<Player> {
             pstmt.setInt(5, chunkId);
             pstmt.executeUpdate();
         }
+        saveInventory(player);
+    }
+
+    private void saveInventory(Player player) throws SQLException {
+        String deleteSql = "DELETE FROM inventory WHERE player_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(deleteSql)) {
+            pstmt.setInt(1, player.getId());
+            pstmt.executeUpdate();
+        }
+
+        // Insert current items
+        String insertSql = "INSERT INTO inventory (player_id, item_name, quantity) VALUES (?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(insertSql)) {
+            for (var entry : player.getInventory().getItems().entrySet()) {
+                pstmt.setInt(1, player.getId());
+                pstmt.setString(2, entry.getKey());
+                pstmt.setInt(3, entry.getValue());
+                pstmt.executeUpdate();
+            }
+        }
     }
 
     public Player loadPlayer(int id) throws SQLException {
@@ -43,12 +63,24 @@ public class PlayerRepository extends BaseRepository<Player> {
                 if (rs.next()) {
                     Player p = new Player(rs.getInt("id"), rs.getInt("x"), rs.getInt("y"));
                     p.setHealth(rs.getInt("health"));
-                    // We can return the chunk ID separately or store it in the player object if needed
+                    loadInventory(p);
                     return p;
                 }
             }
         }
         return null;
+    }
+
+    private void loadInventory(Player player) throws SQLException {
+        String sql = "SELECT * FROM inventory WHERE player_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, player.getId());
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    player.getInventory().addItem(rs.getString("item_name"), rs.getInt("quantity"));
+                }
+            }
+        }
     }
 
     @Override

@@ -12,7 +12,6 @@ import java.util.List;
 
 /**
  * Custom JPanel that renders the game world and handles input.
- * Requirement: Stage II - Infinite Chunks Logic.
  */
 public class GamePanel extends JPanel {
     private WorldMap map;
@@ -37,6 +36,8 @@ public class GamePanel extends JPanel {
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_I) {
                     isInventoryOpen = !isInventoryOpen;
+                } else if (e.getKeyCode() == KeyEvent.VK_R) {
+                    regenerateWorld();
                 } else if (!isInventoryOpen) {
                     handleMovement(e.getKeyCode());
                 }
@@ -69,13 +70,16 @@ public class GamePanel extends JPanel {
 
         // Game loop (Gravity and Repaint)
         Timer timer = new Timer(200, e -> {
-            service.applyGravity(player, map);
-            // Move mobs randomly
-            for (Entity entity : map.getEntities()) {
-                if (entity instanceof HostileMob || entity instanceof PassiveMob) {
-                    int dir = Math.random() > 0.5 ? 1 : -1;
-                    service.moveEntity(entity, dir, 0, map);
-                    service.applyGravity(entity, map);
+            if (this.map != null) {
+                service.applyGravity(player, this.map);
+                // Move mobs randomly
+                for (int i = 0; i < this.map.getEntities().size(); i++) {
+                    Entity entity = this.map.getEntities().get(i);
+                    if (entity instanceof HostileMob || entity instanceof PassiveMob) {
+                        int dir = Math.random() > 0.5 ? 1 : -1;
+                        service.moveEntity(entity, dir, 0, this.map);
+                        service.applyGravity(entity, this.map);
+                    }
                 }
             }
             repaint();
@@ -83,24 +87,39 @@ public class GamePanel extends JPanel {
         timer.start();
     }
 
+    private void regenerateWorld() {
+        // 1. Wipe database
+        try { DatabaseManager.getInstance().resetDatabase(); } catch (SQLException ignored) {}
+        
+        // 2. Reset player position
+        service.resetPlayer(player, map.getForeground().getWidth(), map.getForeground().getHeight());
+
+        // 3. Clear current map manually to be 100% safe
+        this.map = service.loadChunk(currentChunkId, map.getForeground().getWidth(), map.getForeground().getHeight());
+        
+        // 4. Re-add player
+        this.map.getEntities().add(player);
+        System.out.println("Database reset. Current chunk regenerated. Player reset.");
+    }
+
     private void handleMovement(int keyCode) {
-        int width = map.getForeground().getWidth();
+        int width = this.map.getForeground().getWidth();
         
         if (keyCode == KeyEvent.VK_A) {
             if (player.getX() == 0) {
                 changeChunk(currentChunkId - 1, width - 1);
             } else {
-                service.moveEntity(player, -1, 0, map);
+                service.moveEntity(player, -1, 0, this.map);
             }
         } else if (keyCode == KeyEvent.VK_D) {
             if (player.getX() == width - 1) {
                 changeChunk(currentChunkId + 1, 0);
             } else {
-                service.moveEntity(player, 1, 0, map);
+                service.moveEntity(player, 1, 0, this.map);
             }
         } else if (keyCode == KeyEvent.VK_W || keyCode == KeyEvent.VK_SPACE) {
-            if (map.getForeground().getObject(player.getX(), player.getY() - 1) != null) {
-                service.moveEntity(player, 0, 2, map);
+            if (this.map.getForeground().getObject(player.getX(), player.getY() - 1) != null) {
+                service.moveEntity(player, 0, 2, this.map);
             }
         }
     }
@@ -109,7 +128,7 @@ public class GamePanel extends JPanel {
         // Save current chunk entities before leaving
         try {
             EntityRepository.getInstance().clearChunkEntities(currentChunkId);
-            for (Entity e : map.getEntities()) {
+            for (Entity e : this.map.getEntities()) {
                 if (!(e instanceof Player)) {
                     EntityRepository.getInstance().create(e, currentChunkId);
                 }
@@ -121,16 +140,16 @@ public class GamePanel extends JPanel {
 
         this.currentChunkId = newChunkId;
         // Load new map from DB
-        this.map = service.loadChunk(currentChunkId, map.getForeground().getWidth(), map.getForeground().getHeight());
+        this.map = service.loadChunk(currentChunkId, this.map.getForeground().getWidth(), this.map.getForeground().getHeight());
         // Teleport player
         player.setX(newPlayerX);
-        map.getEntities().add(player);
+        this.map.getEntities().add(player);
         System.out.println("Switched to Chunk " + currentChunkId);
     }
 
     private void handleMouseClick(MouseEvent e) {
         int worldX = e.getX() / TILE_SIZE;
-        int worldY = map.getForeground().getHeight() - 1 - (e.getY() / TILE_SIZE);
+        int worldY = this.map.getForeground().getHeight() - 1 - (e.getY() / TILE_SIZE);
 
         double dist = Math.sqrt(Math.pow(worldX - player.getX(), 2) + Math.pow(worldY - player.getY(), 2));
         if (dist > REACH_LIMIT) return;
@@ -140,7 +159,7 @@ public class GamePanel extends JPanel {
 
         if (SwingUtilities.isLeftMouseButton(e)) {
             Entity target = null;
-            for (Entity entity : map.getEntities()) {
+            for (Entity entity : this.map.getEntities()) {
                 if (entity.getX() == worldX && entity.getY() == worldY && entity != player) {
                     target = entity;
                     break;
@@ -149,13 +168,13 @@ public class GamePanel extends JPanel {
 
             if (target != null) {
                 service.attack(player, target);
-                if (!target.isAlive()) map.getEntities().remove(target);
+                if (!target.isAlive()) this.map.getEntities().remove(target);
             } else {
-                service.mineForegroundBlock(currentChunkId, worldX, worldY, heldItem, player, map);
+                service.mineForegroundBlock(currentChunkId, worldX, worldY, heldItem, player, this.map);
             }
         } else if (SwingUtilities.isRightMouseButton(e)) {
             if (heldItem != null && !heldItem.contains("Pickaxe")) {
-                service.placeForegroundBlock(currentChunkId, worldX, worldY, heldItem, player, map);
+                service.placeForegroundBlock(currentChunkId, worldX, worldY, heldItem, player, this.map);
             }
         }
     }
@@ -203,7 +222,6 @@ public class GamePanel extends JPanel {
             if (e instanceof Player) g.setColor(Color.BLUE);
             else if (e instanceof HostileMob) g.setColor(Color.RED);
             else if (e instanceof PassiveMob) g.setColor(Color.PINK);
-            else if (e instanceof DroppedItem) g.setColor(Color.YELLOW);
             g.fillOval(drawX + 4, drawY + 4, TILE_SIZE - 8, TILE_SIZE - 8);
         }
 

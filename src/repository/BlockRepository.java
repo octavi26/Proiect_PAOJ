@@ -26,10 +26,6 @@ public class BlockRepository extends BaseRepository<Block> {
     @Override
     public void create(Block block, int chunkId) throws SQLException {
         String sql = "INSERT OR REPLACE INTO blocks (chunk_id, x, y, type) VALUES (?, ?, ?, ?)";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            // We need the x and y. Assuming we pass them or extract from somewhere.
-            // For blocks, the service will handle the grid coordinates.
-        }
     }
 
     // Specialized methods for world loading
@@ -67,7 +63,6 @@ public class BlockRepository extends BaseRepository<Block> {
 
     @Override
     public List<Block> readAll(int chunkId) throws SQLException {
-        // We use a specialized method since we need x and y
         return new ArrayList<>();
     }
 

@@ -5,10 +5,6 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-/**
- * Singleton class to manage the SQLite database connection.
- * Requirement: Stage II - JDBC Persistence.
- */
 public class DatabaseManager {
     private static DatabaseManager instance;
     private Connection connection;
@@ -20,7 +16,7 @@ public class DatabaseManager {
             connection = DriverManager.getConnection(DB_URL);
             createTables();
         } catch (ClassNotFoundException e) {
-            System.err.println("SQLite Driver not found! Make sure sqlite-jdbc.jar is in the lib folder and added to project structure.");
+            System.err.println("SQLite Driver not found");
         } catch (SQLException e) {
             System.err.println("Database connection failed: " + e.getMessage());
         }
@@ -58,6 +54,21 @@ public class DatabaseManager {
             stmt.execute("CREATE TABLE IF NOT EXISTS player (" +
                     "id INTEGER PRIMARY KEY, health INTEGER, x INTEGER, y INTEGER, " +
                     "current_chunk INTEGER)");
+
+            // Table for Inventory (Requirement: many-to-one relationship/persistence)
+            stmt.execute("CREATE TABLE IF NOT EXISTS inventory (" +
+                    "player_id INTEGER, item_name TEXT, quantity INTEGER, " +
+                    "PRIMARY KEY (player_id, item_name))");
+        }
+    }
+
+    public void resetDatabase() throws SQLException {
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute("DELETE FROM blocks");
+            stmt.execute("DELETE FROM walls");
+            stmt.execute("DELETE FROM entities");
+            stmt.execute("DELETE FROM inventory");
+            // We keep player stats to avoid resetting position
         }
     }
 }

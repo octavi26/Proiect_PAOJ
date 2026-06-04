@@ -5,10 +5,6 @@ import repository.*;
 import java.sql.SQLException;
 import java.util.List;
 
-/**
- * Singleton Service class handling the business logic and persistence.
- * Requirement: Stage II - Singleton Service, JDBC Integration, Audit.
- */
 public class TerrariaService {
     private static TerrariaService instance;
     private int nextObjectId = 1;
@@ -27,6 +23,17 @@ public class TerrariaService {
     /**
      * Loads a chunk from the database or generates it if it doesn't exist.
      */
+    public WorldMap regenerateWorldState(int chunkId, int width, int height) {
+        audit.logAction("REGENERATE_WORLD");
+        try {
+            DatabaseManager.getInstance().resetDatabase();
+            return loadChunk(chunkId, width, height);
+        } catch (SQLException e) {
+            System.err.println("Regeneration failed: " + e.getMessage());
+            return generateWorld(width, height);
+        }
+    }
+
     public WorldMap loadChunk(int chunkId, int width, int height) {
         audit.logAction("LOAD_CHUNK_" + chunkId);
         WorldMap map = new WorldMap(width, height);
@@ -54,7 +61,7 @@ public class TerrariaService {
 
     private WorldMap generateAndSaveWorld(int chunkId, int width, int height) throws SQLException {
         WorldMap map = generateWorld(width, height);
-        // Save blocks to DB (Requirement: Create operation)
+        // Save blocks to DB
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {
                 GameObject fg = map.getForeground().getObject(x, y);
@@ -64,6 +71,17 @@ public class TerrariaService {
                 if (bg != null) WallRepository.getInstance().saveWall(chunkId, x, y, bg.getName());
             }
         }
+        
+        // Spawn and save initial mobs for this chunk
+        spawnPassiveMob("Bunny", 5, height / 2 + 2, map);
+        spawnHostileMob("Zombie", 25, height / 2 + 2, map);
+        
+        for (Entity e : map.getEntities()) {
+            if (!(e instanceof Player)) {
+                EntityRepository.getInstance().create(e, chunkId);
+            }
+        }
+        
         return map;
     }
 
@@ -73,14 +91,14 @@ public class TerrariaService {
         WorldLayer bg = map.getBackground();
 
         for (int x = 0; x < width; x++) {
-            int surfaceY = height * 3 / 4;
+            int surfaceY = height / 2; // Adjusted surface level
             for (int y = 0; y < height; y++) {
                 if (y < surfaceY) bg.setObject(x, y, new Wall(nextObjectId++, "Dirt"));
                 if (y == surfaceY) {
                     fg.setObject(x, y, new Block(nextObjectId++, "Grass"));
                 } else if (y < surfaceY) {
                     if (Math.random() > 0.15) { 
-                        String type = (y < height / 3) ? "Stone" : "Dirt";
+                        String type = (y < height / 4) ? "Stone" : "Dirt";
                         fg.setObject(x, y, new Block(nextObjectId++, type));
                     }
                 }
@@ -105,6 +123,16 @@ public class TerrariaService {
                 movable.setY(newY);
             }
         }
+        
+        // Hostile mob damage logic
+        if (movable instanceof HostileMob && map.getEntities().stream().anyMatch(e -> e instanceof Player && e.getX() == newX && e.getY() == newY)) {
+            for (Entity e : map.getEntities()) {
+                if (e instanceof Player && e.getX() == newX && e.getY() == newY) {
+                    e.setHealth(e.getHealth() - 1);
+                    System.out.println("Player damaged by hostile mob!");
+                }
+            }
+        }
     }
 
     public boolean applyGravity(Movable movable, WorldMap map) {
@@ -121,6 +149,9 @@ public class TerrariaService {
         audit.logAction("ATTACK_ENTITY_" + target.getId());
         if (target.isAlive()) {
             target.setHealth(target.getHealth() - 2);
+            if (!target.isAlive()) {
+                System.out.println("Entity " + target.getId() + " died.");
+            }
         }
     }
 
@@ -150,12 +181,25 @@ public class TerrariaService {
     public void craftTool(String toolName, Player player) {
         if (player.getInventory().removeItem("Wood", 3)) {
             audit.logAction("CRAFT_TOOL_" + toolName);
-            player.getInventory().addItem(toolName, 1);
+            Tool newTool = new Tool(nextObjectId++, toolName, 100, 10);
+            player.getInventory().addItem(newTool.getName(), 1);
+            System.out.println("Crafted: " + newTool);
         }
     }
 
     public void spawnPassiveMob(String mobName, int x, int y, WorldMap map) {
         PassiveMob mob = new PassiveMob(nextEntityId++, mobName, x, y);
         map.getEntities().add(mob);
+    }
+
+    public void spawnHostileMob(String type, int x, int y, WorldMap map) {
+        HostileMob mob = new HostileMob(nextEntityId++, type, x, y);
+        map.getEntities().add(mob);
+    }
+
+    public void resetPlayer(Player player, int width, int height) {
+        player.setX(width / 2);
+        player.setY(height - 2);
+        player.setHealth(10);
     }
 }

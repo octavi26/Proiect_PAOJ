@@ -7,13 +7,9 @@ import view.GamePanel;
 
 import javax.swing.*;
 
-/**
- * Main entry point for the Terraria-Lite game (Stage II version).
- */
 public class Main {
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
-            // Requirement: Stage II - Singleton usage
             TerrariaService service = TerrariaService.getInstance();
             
             int width = 30;
@@ -22,14 +18,23 @@ public class Main {
             // Load initial chunk from DB
             WorldMap map = service.loadChunk(0, width, height);
             
-            Player player = new Player(1, width / 2, height - 2);
-            map.getEntities().add(player);
-            
-            // Add initial mobs
-            service.spawnPassiveMob("Bunny", 5, height - 2, map);
-            service.spawnPassiveMob("Bunny", 25, height - 2, map);
+            // Try to load player from DB, otherwise create new
+            Player player = null;
+            try {
+                player = repository.PlayerRepository.getInstance().loadPlayer(1);
+            } catch (Exception ignored) {System.out.println("No player in DB");}
 
-            JFrame frame = new JFrame("Terraria-Lite Stage II (JDBC + Audit)");
+            if (player == null) {
+                player = new Player(1, width / 2, height / 2 + 2);
+                try {
+                    repository.PlayerRepository.getInstance().create(player, 0);
+                } catch (Exception ignored) {System.out.println("Player can not be created");}
+            }
+            
+            map.getEntities().add(player);
+
+
+            JFrame frame = new JFrame("Terraria-Lite");
             GamePanel panel = new GamePanel(map, player, service);
             
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
